@@ -22,122 +22,89 @@ from collections import defaultdict
 
 
 def initial_policy(observation):
-    """A policy that sticks if the player score is >= 20 and hit otherwise
-
-    Parameters:
-    -----------
-    observation:
-    Returns:
-    --------
-    action: 0 or 1
-        0: STICK
-        1: HIT
-    """
-    ############################
-    # YOUR IMPLEMENTATION HERE #
-    #                          #
-    ############################
-    return action
+    
+    return 0 if observation[0] >= 20 else 1
 
 
 def mc_prediction(policy, env, n_episodes, gamma=1.0):
-    """Given policy using sampling to calculate the value function
-        by using Monte Carlo first visit algorithm.
-
-    Parameters:
-    -----------
-    policy: function
-        A function that maps an obversation to action probabilities
-    env: function
-        OpenAI gym environment
-    n_episodes: int
-        Number of episodes to sample
-    gamma: float
-        Gamma discount factor
-    Returns:
-    --------
-    V: defaultdict(float)
-        A dictionary that maps from state to value
-    """
-    # initialize empty dictionaries
+    
+    # Initialize dictionaries to store returns and counts
     returns_sum = defaultdict(float)
     returns_count = defaultdict(float)
-    # a nested dictionary that maps state -> value
-    V = defaultdict(float)
+    V = defaultdict(float)  # Value function
 
-    ############################
-    # YOUR IMPLEMENTATION HERE #
-    #                          #
-    ############################
+    for _ in range(n_episodes):
+        state, _ = env.reset()  # Start new episode
+        episode = []  # Store state, action, reward tuples
+
+        # Generate an episode
+        while True:
+            action = policy(state)
+            next_state, reward, terminated, truncated, info = env.step(action)
+            episode.append((state, reward))  # Track state and reward
+            if terminated or truncated:
+                break
+            state = next_state
+
+        # First-visit Monte Carlo update for each state
+        visited = set()
+        G = 0  # Return starts at the end of the episode
+        for state, reward in reversed(episode):
+            G = gamma * G + reward  # Compute return
+            if state not in visited:
+                visited.add(state)
+                returns_sum[state] += G
+                returns_count[state] += 1
+                V[state] = returns_sum[state] / returns_count[state]  # Update value function
 
     return V
 
 
+
 def epsilon_greedy(Q, state, nA, epsilon=0.1):
-    """Selects epsilon-greedy action for supplied state.
+    
+    if random.random() > epsilon:
+        # Exploit: choose the best action with the highest Q-value
+        return np.argmax(Q[state])
+    else:
+        # Explore: choose a random action
+        return random.randint(0, nA - 1)
 
-    Parameters:
-    -----------
-    Q: dict()
-        A dictionary  that maps from state -> action-values,
-        where Q[s][a] is the estimated action value corresponding to state s and action a.
-    state: 
-        current state
-    nA: int
-        Number of actions in the environment
-    epsilon: float
-        The probability to select a random action, range between 0 and 1
-
-    Returns:
-    --------
-    action: int
-        action based current state
-    Hints:
-    ------
-    With probability (1 - epsilon) choose the greedy action.
-    With probability epsilon choose an action at random.
-    """
-    ############################
-    # YOUR IMPLEMENTATION HERE #
-    #                          #
-    ############################
-    return action
 
 
 def mc_control_epsilon_greedy(env, n_episodes, gamma=1.0, epsilon=0.1):
-    """Monte Carlo control with exploring starts.
-        Find an optimal epsilon-greedy policy.
-
-    Parameters:
-    -----------
-    env: function
-        OpenAI gym environment
-    n_episodes: int
-        Number of episodes to sample
-    gamma: float
-        Gamma discount factor
-    epsilon: float
-        The probability to select a random action, range between 0 and 1
-    Returns:
-    --------
-    Q: dict()
-        A dictionary  that maps from state -> action-values,
-        where Q[s][a] is the estimated action value corresponding to state s and action a.
-    Hint:
-    -----
-    You could consider decaying epsilon, i.e. epsilon = epsilon-0.1/n_episode during each episode
-    and episode must > 0.
-    """
-
-    returns_sum = defaultdict(float)
-    returns_count = defaultdict(float)
-    # a nested dictionary that maps state -> (action -> action-value)
-    # e.g. Q[state] = np.darrary(nA)
+    
+    # Initialize Q-value table and returns tracking
+    returns_sum = defaultdict(lambda: np.zeros(env.action_space.n))
+    returns_count = defaultdict(lambda: np.zeros(env.action_space.n))
     Q = defaultdict(lambda: np.zeros(env.action_space.n))
 
-    ############################
-    # YOUR IMPLEMENTATION HERE #
-    #                          #
-    ############################
+    for i in range(n_episodes):
+        state, _ = env.reset()
+        episode = []
+        visited_in_episode = defaultdict(lambda: defaultdict(bool))
+
+        # Generate the episode
+        while True:
+            action = epsilon_greedy(Q, state, env.action_space.n, epsilon)
+            next_state, reward, terminated, truncated, info = env.step(action)
+            episode.append((state, action, reward))
+            if terminated or truncated:
+                break
+            state = next_state
+
+        # First-visit Monte Carlo control
+        G = 0  # Cumulative reward
+        for state, action, reward in reversed(episode):
+            G = gamma * G + reward
+            if not visited_in_episode[state][action]:
+                visited_in_episode[state][action] = True
+                returns_sum[state][action] += G
+                returns_count[state][action] += 1
+                Q[state][action] = returns_sum[state][action] / returns_count[state][action]
+
+        # Decay epsilon for better exploitation later in training
+        epsilon = max(0.1, epsilon - 0.1 / n_episodes)
 
     return Q
+
