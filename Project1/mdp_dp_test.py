@@ -247,13 +247,13 @@ def test_render_single():
    #  print("\n" + "-"*25 + "\nBeginning Policy Iteration\n" + "-"*25)
     random_policy = np.ones([nS, nA]) / nA
     p_pi, V_pi = policy_iteration(env.P, nS, nA, random_policy,tol=1e-8)
-    r_pi = render_single(env, p_pi, False, 50)
+    r_pi = render_single(env, p_pi, False, 500)
    #  print("total rewards of PI: ",r_pi)
     
    #  print("\n" + "-"*25 + "\nBeginning Value Iteration\n" + "-"*25)
     V = np.zeros(nS)
     p_vi, V_vi = value_iteration(env.P, nS, nA, V,tol=1e-8)
-    r_vi = render_single(env, p_vi, False, 50)
+    r_vi = render_single(env, p_vi, False, 500)
    #  print("total rewards of VI: ",r_vi)
     
     

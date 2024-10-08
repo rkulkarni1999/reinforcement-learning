@@ -1,7 +1,3 @@
-### MDP Value Iteration and Policy Iteration
-### Reference: https://web.stanford.edu/class/cs234/assignment1/index.html 
-# Modified By Yanhua Li on 09/09/2022 for gym==0.25.2
-# Modified By Yanhua Li on 08/19/2023 for gymnasium==0.29.0
 import numpy as np
 
 np.set_printoptions(precision=3)
@@ -55,6 +51,50 @@ def policy_evaluation(P, nS, nA, policy, gamma=0.9, tol=1e-8):
     # YOUR IMPLEMENTATION HERE #
     #                          #
     ############################
+
+    def val_eval(s, depth, terminal = False):
+        # # Termination condition for the tree depth. I am not doing recusive thing as it is super slow!!!!
+        # if depth>5 or terminal == True:
+        #     return 0.0
+        
+        val = 0
+        for aindex in range(nA):
+            probAgivenS = policy[s][aindex]
+            # Access the chance of transitioning to the next states. 
+            # we dont care about the ordering
+            tups = P[sindex][aindex] 
+            vThisIteration = 0
+            for nextIndex in range(len(tups)):
+                tup = tups[nextIndex]
+                prob = tup[0]
+                nextState = tup[1]
+                reward = tup[2]
+                terminal = tup[3]
+                # print(sindex, " ", aindex, " reached, ", nextState, " ",  reward, " ", terminal)
+                # nextEval = val_eval(nextState, depth+1, terminal) // This is super inefficient lol
+                oldValueFuncForNextState = value_function[nextState]
+                vThisIteration = vThisIteration + prob*(reward + gamma*oldValueFuncForNextState)
+
+            val = val + probAgivenS*vThisIteration
+
+        return val
+                
+    
+    while True:
+        delta = 0
+        # Find the max delta among all the states for sucessive evaluations
+        for sindex in range(nS):
+            old_v = value_function[sindex]
+            new_v = val_eval(sindex, 0)
+
+            value_function[sindex] = new_v
+            delta = max(delta, abs(new_v - old_v))
+
+        if delta<tol:
+            break
+
+    # print(value_function)
+    
     return value_function 
 
 
@@ -75,38 +115,164 @@ def policy_improvement(P, nS, nA, value_from_policy, gamma=0.9):
         given value function.
     """
 
+
     new_policy = np.ones([nS, nA]) / nA # policy as a uniform distribution
 	############################
 	# YOUR IMPLEMENTATION HERE #
     #                          #
 	############################
+
+    isPolStable = True
+
+    for sindex in range(nS):
+        oldAction = new_policy[sindex].copy()
+
+        bestAction = 0
+        bestActionReward = -100.0
+
+        for aindex in range(nA):
+            # Access the chance of transitioning to the next states. 
+            # we dont care about the ordering
+            tups = P[sindex][aindex] 
+            vThisIteration = 0
+            for nextIndex in range(len(tups)):
+                tup = tups[nextIndex]
+                prob = tup[0]
+                nextState = tup[1]
+                reward = tup[2]
+                terminal = tup[3]
+                oldValueFuncForNextState = value_from_policy[nextState]
+                vThisIteration = vThisIteration + prob*(reward + gamma*oldValueFuncForNextState)
+            if vThisIteration>bestActionReward:
+                bestAction = aindex
+                bestActionReward = vThisIteration
+
+        newAction = np.zeros(4)
+        newAction[bestAction] = 1 # Full probability to the best action
+
+        new_policy[sindex] = newAction
+
     return new_policy
 
 
+
+def policy_evaluation_v2(P, nS, nA, policy, oldValue, gamma=0.9, tol=1e-8):
+    # Initialize value function as the old value (allows incremental updates)
+    value_function = oldValue.copy()
+
+    while True:
+        delta = 0  # Track maximum change in value function
+        
+        # Update each state value based on the policy
+        for s in range(nS):
+            v = 0  # Temporary value for state s
+
+            # Loop over all actions
+            for a, action_prob in enumerate(policy[s]):
+                for prob, next_state, reward, done in P[s][a]:
+                    v += action_prob * prob * (reward + gamma * value_function[next_state] * (not done))
+            
+            # Calculate maximum difference for convergence check
+            delta = max(delta, abs(v - value_function[s]))
+            value_function[s] = v
+
+        # Break loop when change is below tolerance
+        if delta < tol:
+            break
+
+    return value_function
+
+def policy_improvement_v2(P, nS, nA, value_from_policy, old_policy, gamma=0.9):
+    new_policy = np.zeros_like(old_policy)  # Initialize new policy
+
+    isPolStable = True  # Flag to check if policy changes
+
+    for s in range(nS):
+        old_action = np.argmax(old_policy[s])  # Current action in the old policy
+        best_action = None
+        best_action_value = float('-inf')
+
+        # Calculate the Q-value for each action
+        for a in range(nA):
+            action_value = 0
+            for prob, next_state, reward, done in P[s][a]:
+                action_value += prob * (reward + gamma * value_from_policy[next_state] * (not done))
+            
+            # Select the action with the highest Q-value
+            if action_value > best_action_value:
+                best_action_value = action_value
+                best_action = a
+
+        # Update policy: assign 1 to the best action, 0 to others
+        new_policy[s][best_action] = 1
+
+        # Check if the policy has changed
+        if old_action != best_action:
+            isPolStable = False
+
+    return new_policy, isPolStable
+
+# def policy_improvement_v2(P, nS, nA, value_from_policy, old_policy, gamma=0.9):
+#     # new_policy = np.ones([nS, nA]) / nA # policy as a uniform distribution
+# 	############################
+# 	# YOUR IMPLEMENTATION HERE #
+#     #                          #
+# 	############################
+
+#     isPolStable = True
+
+#     new_policy = old_policy.copy()
+#     for sindex in range(nS):
+#         oldAction = old_policy[sindex].copy()
+
+#         bestAction = 0
+#         bestActionReward = -100.0
+
+#         for aindex in range(nA):
+#             # Access the chance of transitioning to the next states. 
+#             # we dont care about the ordering
+#             tups = P[sindex][aindex] 
+#             vThisIteration = 0
+#             for nextIndex in range(len(tups)):
+#                 tup = tups[nextIndex]
+#                 prob = tup[0]
+#                 nextState = tup[1]
+#                 reward = tup[2]
+#                 terminal = tup[3]
+#                 oldValueFuncForNextState = value_from_policy[nextState]
+#                 vThisIteration = vThisIteration + prob*(reward + gamma*oldValueFuncForNextState)
+#             if vThisIteration>bestActionReward:
+#                 bestAction = aindex
+#                 bestActionReward = vThisIteration
+
+#         newAction = np.zeros(nA)
+#         newAction[bestAction] = 1 # Full probability to the best action
+
+#         if np.array_equal(newAction, oldAction) == False:
+#             isPolStable = False
+
+#         new_policy[sindex] = newAction
+#     return new_policy, isPolStable
+
 def policy_iteration(P, nS, nA, policy, gamma=0.9, tol=1e-8):
-    """Runs policy iteration.
-
-    You should call the policy_evaluation() and policy_improvement() methods to
-    implement this method.
-
-    Parameters
-    ----------
-    P, nS, nA, gamma:
-        defined at beginning of file
-    policy: policy to be updated
-    tol: float
-        tol parameter used in policy_evaluation()
-    Returns:
-    ----------
-    new_policy: np.ndarray[nS,nA]
-    V: np.ndarray[nS]
-    """
     new_policy = policy.copy()
-	############################
-	# YOUR IMPLEMENTATION HERE #
-    #                          #
-	############################
-    return new_policy, V
+    V = np.zeros(nS)  # Initialize value function
+    itr = 0
+
+    while True:
+        # Perform policy evaluation
+        V = policy_evaluation_v2(P, nS, nA, new_policy, V, gamma, tol)
+
+        # Perform policy improvement
+        new_policy, policy_stable = policy_improvement_v2(P, nS, nA, V, new_policy, gamma)
+
+        itr += 1
+
+        if policy_stable:
+            break  # If the policy is stable, we are done
+
+    return new_policy.copy(), V.copy()
+
 
 def value_iteration(P, nS, nA, V, gamma=0.9, tol=1e-8):
     """
@@ -126,45 +292,97 @@ def value_iteration(P, nS, nA, V, gamma=0.9, tol=1e-8):
     policy_new: np.ndarray[nS,nA]
     V_new: np.ndarray[nS]
     """
-    V_new = V.copy()
-    policy_new = np.zeros([nS, nA])
-    ############################
-    # YOUR IMPLEMENTATION HERE #
-    #                          #
-    ############################
-    return policy_new, V_new
+    value_function = V.copy()
+    new_policy = np.zeros([nS, nA])
 
-def render_single(env, policy, render = False, n_episodes=100):
+    def val_eval(s):
+        val = -100000
+        bestActionReward = -100
+        bestAction = 0
+        for aindex in range(nA):
+
+            tups = P[sindex][aindex] 
+            vCumsum = 0
+            
+            for nextIndex in range(len(tups)):
+                tup = tups[nextIndex]
+                prob = tup[0]
+                nextState = tup[1]
+                reward = tup[2]
+                terminal = tup[3]
+                oldValueFuncForNextState = value_function[nextState]
+                vThisIteration = prob*(reward + gamma*oldValueFuncForNextState)
+                vCumsum = vCumsum + vThisIteration
+
+            val = max(val, vCumsum)
+
+        return val
+                
+    
+    while True:
+        delta = 0
+        # Find the max delta among all the states for sucessive evaluations
+        for sindex in range(nS):
+            old_v = value_function[sindex]
+            new_v = val_eval(sindex)
+            value_function[sindex] = new_v
+
+            delta = max(delta, abs(new_v - old_v))
+        
+        if delta<tol:
+            break
+
+    new_policy = policy_improvement(P, nS, nA, value_function, gamma=0.9)
+
+    return new_policy, value_function
+
+def render_single(env, policy, render=False, n_episodes=100):
     """
-    Given a game envrionemnt of gym package, play multiple episodes of the game.
-    An episode is over when the returned value for "done" = True.
-    At each step, pick an action and collect the reward and new state from the game.
-
+    Given a game environment, play multiple episodes using the given policy.
+    An episode ends when 'done' is True, which can happen either when the agent
+    reaches the goal or falls into a hole.
+    
     Parameters:
     ----------
     env: gym.core.Environment
-      Environment to play on. Must have nS, nA, and P as attributes.
+        Environment to play in. Must have nS, nA, and P as attributes.
     policy: np.array of shape [env.nS, env.nA]
-      The action to take at a given state
-    render: whether or not to render the game(it's slower to render the game)
-    n_episodes: the number of episodes to play in the game. 
+        The action to take at a given state.
+    render: bool
+        Whether to render the game on each step (slows down the simulation).
+    n_episodes: int
+        Number of episodes to play.
+
     Returns:
-    ------
-    total_rewards: the total number of rewards achieved in the game.
+    --------
+    total_rewards: int
+        Total accumulated rewards across all episodes.
     """
     total_rewards = 0
+
     for _ in range(n_episodes):
-        ob, _ = env.reset() # initialize the episode
+        ob, _ = env.reset()  # Reset the environment
         done = False
-        while not done: # using "not truncated" as well, when using time_limited wrapper.
+        
+        while not done:
             if render:
-                env.render() # render the game
-            ############################
-            # YOUR IMPLEMENTATION HERE #
-            #                          #
-            ############################
+                env.render()  # Render the game if render=True
+
+            # Choose action based on the policy
+            action = np.argmax(policy[ob])  # Or sample if using stochastic policy
             
+            # Take the action in the environment
+            ob, reward, done, truncated, _ = env.step(action)
+            done = done or truncated  # Consider both done and truncated states
+
+            # Accumulate the reward
+            total_rewards += reward
+
+            # Debugging output
+            # print(f"State: {ob}, Action: {action}, Reward: {reward}, Done: {done}")
+
     return total_rewards
+
 
 
 
