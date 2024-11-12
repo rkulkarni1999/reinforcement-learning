@@ -71,7 +71,6 @@ def epsilon_greedy(Q, state, nA, epsilon=0.1):
         return random.randint(0, nA - 1)
 
 
-
 def mc_control_epsilon_greedy(env, n_episodes, gamma=1.0, epsilon=0.1):
     
     # Initialize Q-value table and returns tracking

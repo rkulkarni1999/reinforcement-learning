@@ -38,7 +38,7 @@ def sarsa(env, n_episodes, gamma=1.0, alpha=0.5, epsilon=0.1):
 def q_learning(env, n_episodes, gamma=1.0, alpha=0.5, epsilon=0.1):
     Q = defaultdict(lambda: np.zeros(env.action_space.n))
     
-    for _ in range(n_episodes):
+    for x in range(n_episodes):
         state, _ = env.reset()
         terminated = False
         truncated = False
