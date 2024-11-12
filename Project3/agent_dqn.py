@@ -81,7 +81,6 @@ class Agent_DQN(Agent):
             self.policy_net.eval()
 
     def init_game_setting(self):
-
         pass
         
     def make_action(self, observation, test=True):
@@ -117,7 +116,7 @@ class Agent_DQN(Agent):
             while True:
                 
                 action = self.make_action(state)
-                observation, reward, done, truncated, info = self.env.step(action)
+                observation, reward, done, truncated, _ = self.env.step(action)
                 sum_reward += reward
                 
                 next_state = None if done or truncated else observation
@@ -125,7 +124,6 @@ class Agent_DQN(Agent):
     
                 state = next_state
 
-                
                 if len(self.replay_buff) < self.batch_size:
                     continue
                 
@@ -165,7 +163,6 @@ class Agent_DQN(Agent):
                                 
                 self.step_counter += 1
                 if self.step_counter%100 == 0:
-                    self.writer.add_scalar("Loss", loss, self.step_counter)
                     self.writer.add_scalar("Epsilon", self.epsilon_threshold, self.step_counter)
                                 
                 target_net_state_dict = self.target_net.state_dict()
