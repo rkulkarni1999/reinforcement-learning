@@ -31,6 +31,7 @@ def run(args, record_video=False):
         env_name = args.env_name or 'BreakoutNoFrameskip-v4'
         env = Environment(env_name, args, atari_wrapper=True, test=False)
         from agent_dqn import Agent_DQN
+
         agent = Agent_DQN(env, args)
         agent.train()
 
