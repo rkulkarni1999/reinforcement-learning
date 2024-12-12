@@ -192,7 +192,6 @@ class Agent_DQN(Agent):
                 self.writer.add_scalar("Episode Time", episode_elapsed_time, ii)
                 self.writer.add_scalar("Episode Max Steps", tIndex, ii)
 
-                   
             if ii%100 == 0:
                 model_path = output_dir + f"model_{ii}.pth"
                 torch.save(self.policy_net.state_dict(), model_path)
